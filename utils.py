@@ -22,3 +22,15 @@ def round_to_array(object, array):
 
     # Replace each entry in object with the closest entry from array
     return array[indices]
+
+
+def freq_to_prob(frequency, coincidence_fraction=1 / 12):
+    if frequency.max() * coincidence_fraction > 0.1:
+        raise ValueError("Frequency too large for binomial approximation of Poisson.")
+    else:
+        return 1.0 - np.exp(-frequency * coincidence_fraction)
+
+
+def prob_to_freq(probability, time_unit="year", coincidence_fraction=1 / 12):
+    # check value range?
+    return -np.log(1 - probability) / coincidence_fraction
