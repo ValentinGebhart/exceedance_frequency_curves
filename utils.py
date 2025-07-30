@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def round_to_array(object, array):
+def round_to_array(obj, array):
     """
     Round the elements of `obj` to the nearest value in `arr`.
 
@@ -12,28 +12,16 @@ def round_to_array(object, array):
     Returns:
     np.ndarray: An array with the same shape as `obj`, where each element is replaced by the closest value from `arr`.
     """
-    object = np.asarray(object)
+    obj = np.asarray(obj)
     array = np.asarray(array)
     if array.shape != (array.size,):
         raise ValueError("arr must be a 1-D array.")
 
     # Find the index in array of the closest value for each value in object
-    indices = np.abs(np.expand_dims(object, -1) - array).argmin(axis=-1)
+    indices = np.abs(np.expand_dims(obj, -1) - array).argmin(axis=-1)
 
     # Replace each entry in object with the closest entry from array
     return array[indices]
-
-
-def freq_to_prob(frequency, coincidence_fraction=1 / 12):
-    if frequency.max() * coincidence_fraction > 0.1:
-        raise ValueError("Frequency too large for binomial approximation of Poisson.")
-    else:
-        return 1.0 - np.exp(-frequency * coincidence_fraction)
-
-
-def prob_to_freq(probability, time_unit="year", coincidence_fraction=1 / 12):
-    # check value range?
-    return -np.log(1 - probability) / coincidence_fraction
 
 def prob_from_exceedance_frequency(exceedance_frequency, coincidence_fraction=1 / 12):
     """
