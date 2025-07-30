@@ -23,6 +23,7 @@ def round_to_array(obj, array):
     # Replace each entry in object with the closest entry from array
     return array[indices]
 
+
 def prob_from_exceedance_frequency(exceedance_frequency, coincidence_fraction=1 / 12):
     """
     Convert exceedance frequency to probability.
@@ -38,11 +39,16 @@ def prob_from_exceedance_frequency(exceedance_frequency, coincidence_fraction=1 
     # convert time unit to coincidence window
     ex_freq = exceedance_frequency * coincidence_fraction
     # compute probability of exceedance from exceedance frequency
-    probs_exceedance = 1-np.exp(-ex_freq)
+    probs_exceedance = 1 - np.exp(-ex_freq)
     # compute probabilities from exceedance probabilities
-    probabilities = np.flip(np.diff(np.insert(np.flip(probs_exceedance, axis=-1), 0, 0., -1), axis=-1), axis=-1)    # probabilities = np.concatenate([np.expand_dims(1- np.sum(probabilities, axis=-1), axis=-1), probabilities])
+    probabilities = np.flip(
+        np.diff(np.insert(np.flip(probs_exceedance, axis=-1), 0, 0.0, -1), axis=-1),
+        axis=-1,
+    )  # probabilities = np.concatenate([np.expand_dims(1- np.sum(probabilities, axis=-1), axis=-1), probabilities])
     # include probability for nothing happening
-    probabilities = np.insert(probabilities, 0, 1 - np.sum(probabilities, axis=-1), axis=-1)
+    probabilities = np.insert(
+        probabilities, 0, 1 - np.sum(probabilities, axis=-1), axis=-1
+    )
 
     return probabilities
 
@@ -62,8 +68,10 @@ def exceedance_frequency_from_prob(probabilities, coincidence_fraction=1 / 12):
     # Remove the probability for "nothing happening" (first entry)
     probs = np.delete(probabilities, 0, axis=-1)
     # Recover the exceedance probabilities from probabilities
-    exceedance_probabilities = np.flip(np.cumsum(np.flip(probs, axis=-1), axis=-1), axis=-1)
-    # recover exceedance frequencies 
+    exceedance_probabilities = np.flip(
+        np.cumsum(np.flip(probs, axis=-1), axis=-1), axis=-1
+    )
+    # recover exceedance frequencies
     ex_freq = -np.log(1 - exceedance_probabilities)
     # Undo the scaling by coincidence_fraction
     exceedance_frequency = ex_freq / coincidence_fraction

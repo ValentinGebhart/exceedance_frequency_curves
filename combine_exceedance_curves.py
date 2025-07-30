@@ -4,7 +4,11 @@ from itertools import product
 import numpy as np
 
 from return_period_maps import ExceedanceCurve
-from utils import round_to_array, prob_from_exceedance_frequency, exceedance_frequency_from_prob
+from utils import (
+    round_to_array,
+    prob_from_exceedance_frequency,
+    exceedance_frequency_from_prob,
+)
 
 
 def combine_exceedance_curves(
@@ -30,21 +34,10 @@ def combine_exceedance_curves(
     _type_
         _description_
     """
-
+    # prepare values
     values = np.array(
         [return_period_curve.values for return_period_curve in exceedance_curves]
     )
-    exceedance_frequencies = np.array(
-        [
-            exceedance_curves.exceedance_frequencies
-            for exceedance_curves in exceedance_curves
-        ]
-    )
-    # estimate probabilities from exceedance frequencies
-    # TBD add warning!
-
-    probabilities = prob_from_exceedance_frequency(
-        exceedance_frequency=exceedance_frequencies, coincidence_fraction=coincidence_fraction)
     if value_resolution is None:
         value_resolution = np.nanmin(np.diff(values, axis=1))
     # round values to resolution
@@ -52,9 +45,68 @@ def combine_exceedance_curves(
         np.nanmin(values), np.nanmax(values) + value_resolution, value_resolution
     )
     values = round_to_array(values, value_bins)
-
     # add zeros corresponding to nothing happens probability
     values = np.insert(values, 0, 0.0, axis=-1)
+
+    # preapre probabilities
+    exceedance_frequencies = np.array(
+        [
+            exceedance_curves.exceedance_frequencies
+            for exceedance_curves in exceedance_curves
+        ]
+    )
+    # convert to probabilities
+    probabilities = prob_from_exceedance_frequency(
+        exceedance_frequency=exceedance_frequencies,
+        coincidence_fraction=coincidence_fraction,
+    )
+
+    # compute aggreagted values and probabilties
+    final_values = values[0]
+    final_probabilities = probabilities[0]
+    for j in range(1, len(values)):
+        final_values, final_probabilities = _combine_two_prob_sets(
+            [values[j], probabilities[j]],
+            [final_values, final_probabilities],
+            aggregation_method,
+            value_resolution,
+        )
+
+    final_exceedance_frequency = exceedance_frequency_from_prob(
+        final_probabilities, coincidence_fraction=coincidence_fraction
+    )
+    # remove nothing happens bin
+    final_values = final_values[1:]
+
+    aggregated_return_period_curve = ExceedanceCurve(
+        values=final_values,
+        exceedance_frequencies=final_exceedance_frequency,
+        time_unit=exceedance_curves[0].time_unit,
+        value_unit=exceedance_curves[0].value_unit,
+    )
+
+    return aggregated_return_period_curve
+
+
+def _combine_two_prob_sets(
+    probabilistic_set1,
+    probabilistic_set2,
+    aggregation_method,
+    value_resolution,
+):
+    """
+
+    Parameters
+    ----------
+    values : _type_
+        _description_
+    probabilities : _type_
+        _description_
+    aggregation_method : _type_
+        _description_
+    """
+    values = [probabilistic_set1[0], probabilistic_set2[0]]
+    probabilities = [probabilistic_set1[1], probabilistic_set2[1]]
 
     # aggreagate values and probabilities
     aggregated_values = np.array(
@@ -73,12 +125,14 @@ def combine_exceedance_curves(
     aggregated_values = round_to_array(aggregated_values, aggregated_bins)
     unique_values, indices = np.unique(aggregated_values, return_inverse=True)
     indices = indices.reshape(aggregated_values.shape)
+    # sum up corresponding probabilities
     corresponding_probabilities = np.array(
         [
             aggregated_probabilities[np.where(indices == index)].sum()
             for index in range(indices.max() + 1)
         ]
     )
+    # reshape  probabilities
     final_probabilities = np.zeros_like(aggregated_bins)
     for unique_value, corresponding_probabilitiy in zip(
         unique_values, corresponding_probabilities
@@ -86,31 +140,5 @@ def combine_exceedance_curves(
         final_probabilities[np.where(aggregated_bins == unique_value)] = (
             corresponding_probabilitiy
         )
-    final_exceedance_frequency = exceedance_frequency_from_prob(
-       final_probabilities, coincidence_fraction=coincidence_fraction
-    )
-    # remove nothing happens bin
-    aggregated_bins = aggregated_bins[1:]
 
-    # frequency_range = np.where(
-    #     (final_exceedance_frequency > exceedance_frequencies.min()) & 
-    #     (final_exceedance_frequency < exceedance_frequencies.max())
-    # )
-    # aggregated_bins = aggregated_bins[frequency_range]
-    # final_exceedance_frequency = final_exceedance_frequency[frequency_range]
-    aggregated_return_period_curve = ExceedanceCurve(
-        values=aggregated_bins,
-        exceedance_frequencies=final_exceedance_frequency,
-        time_unit=exceedance_curves[0].time_unit,
-        value_unit=exceedance_curves[0].value_unit,
-    )
-
-    return aggregated_return_period_curve
-
-
-def coarsen_resolution():
-    return
-
-
-def refine_resolution():
-    return
+    return (aggregated_bins, final_probabilities)
