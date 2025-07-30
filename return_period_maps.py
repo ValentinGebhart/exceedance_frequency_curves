@@ -21,7 +21,7 @@ class ExceedanceCurve:
         ax.set_yscale("log")
         ax.set_xlabel(f"Exceedance value ({self.value_unit})")
         ax.set_ylabel(f"Return Period ({self.time_unit})")
-        return
+        return fig, ax
 
     def plot_exceedance_instensity_curve(self):
         fig, ax = plt.subplots()
@@ -29,7 +29,7 @@ class ExceedanceCurve:
         ax.set_xscale("log")
         ax.set_xlabel(f"Return Period ({self.time_unit})")
         ax.set_ylabel(f"Exceedance value ({self.value_unit})")
-        return
+        return fig, ax
 
 
 class ReturnPeriodMap:
@@ -58,7 +58,7 @@ class ReturnPeriodMap:
         local_exceedance_values = local_exceedance_intensity.drop(columns="geometry")
         exceedance_curves = [
             ExceedanceCurve(
-                values=local_exceedance_values.iloc[i_centroid, :],
+                values=local_exceedance_values.iloc[i_centroid, :].values,
                 exceedance_frequencies=1
                 / local_exceedance_values.columns.values.astype(float),
             )
