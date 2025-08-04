@@ -1,35 +1,8 @@
-import matplotlib.pyplot as plt
+"""
+ReturnPeriodMap class
+"""
 
-
-class ExceedanceCurve:
-
-    def __init__(self, values, exceedance_frequencies, time_unit=None, value_unit=None):
-
-        if len(values) != len(exceedance_frequencies):
-            raise ValueError(
-                "Number of threshold values %s different to number of exceedance frequencies %s"
-                % (len(values), len(exceedance_frequencies))
-            )
-        self.values = values
-        self.exceedance_frequencies = exceedance_frequencies
-        self.time_unit = time_unit if time_unit is not None else "year"
-        self.value_unit = value_unit if value_unit is not None else "USD"
-
-    def plot_return_period_curve(self):
-        fig, ax = plt.subplots()
-        ax.plot(self.values, 1 / self.exceedance_frequencies)
-        ax.set_yscale("log")
-        ax.set_xlabel(f"Exceedance value ({self.value_unit})")
-        ax.set_ylabel(f"Return Period ({self.time_unit})")
-        return fig, ax
-
-    def plot_exceedance_instensity_curve(self):
-        fig, ax = plt.subplots()
-        ax.plot(1 / self.exceedance_frequencies, self.values)
-        ax.set_xscale("log")
-        ax.set_xlabel(f"Return Period ({self.time_unit})")
-        ax.set_ylabel(f"Exceedance value ({self.value_unit})")
-        return fig, ax
+from exceedance_curves import ExceedanceCurve
 
 
 class ReturnPeriodMap:
@@ -61,6 +34,8 @@ class ReturnPeriodMap:
                 values=local_exceedance_values.iloc[i_centroid, :].values,
                 exceedance_frequencies=1
                 / local_exceedance_values.columns.values.astype(float),
+                # time_unit="years", # TBD: import this correctly
+                # value_unit="USD", # TBD: import this correctly
             )
             for i_centroid in range(local_exceedance_values.shape[0])
         ]

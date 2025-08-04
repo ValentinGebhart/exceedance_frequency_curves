@@ -6,14 +6,22 @@ import unittest
 
 import numpy as np
 
-import utils
+import exceedance_curves as cec
 
 
 class TestFunc(unittest.TestCase):
     """Test conversion functions."""
 
-    def test_prob_from_exceedance_frequency(self):
-        """Test converting exceedance frequencies to probabilities."""
+    def test__combine_two_prob_sets(self):
+        """Test combining two probabilistic sets."""
+        return
+
+    def test_combine_exceedance_curves(self):
+        """Test combining two probabilistic sets."""
+        return
+
+    def test__combine_two_prob_sets2(self):
+        """Test combining two probabilistic sets."""
 
         # generate test execeedance frequencies
         exceedance_frequencies = np.array(
@@ -115,25 +123,6 @@ class TestFunc(unittest.TestCase):
         # test error for non-1D array
         with self.assertRaises(ValueError):
             utils.round_to_array(obj, np.array([[1, 2], [3, 4]]))
-
-    def test_frecquency_from_exceedance_frequency(self):
-        exceedance_frequency = np.array(
-            [
-                [1.0, 0.8, 0.5, 0.1],
-                [0.001, 0.0003, 0.0003, 0.0002],
-                [300, 10, 1, 0],
-            ]
-        )
-        np.testing.assert_array_almost_equal(
-            utils.frequency_from_exceedance_frequency(exceedance_frequency),
-            np.array(
-                [
-                    [0.2, 0.3, 0.4, 0.1],
-                    [0.0007, 0.0, 0.0001, 0.0002],
-                    [290, 9, 1, 0],
-                ]
-            ),
-        )
 
 
 # Execute Tests

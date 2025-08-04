@@ -76,3 +76,10 @@ def exceedance_frequency_from_prob(probabilities, coincidence_fraction=1 / 12):
     # Undo the scaling by coincidence_fraction
     exceedance_frequency = ex_freq / coincidence_fraction
     return exceedance_frequency
+
+
+def frequency_from_exceedance_frequency(exceedance_frequency):
+    return np.flip(
+        np.diff(np.insert(np.flip(exceedance_frequency, axis=-1), 0, 0.0, -1), axis=-1),
+        axis=-1,
+    )

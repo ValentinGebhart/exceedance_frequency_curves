@@ -1,14 +1,70 @@
+"""
+ExceedanceCurve class and corresponding functions
+"""
+
 from math import prod
 from itertools import product
 
 import numpy as np
+import matplotlib.pyplot as plt
 
-from return_period_maps import ExceedanceCurve
 from utils import (
     round_to_array,
     prob_from_exceedance_frequency,
     exceedance_frequency_from_prob,
 )
+
+
+class ExceedanceCurve:
+    """_summary_"""
+
+    def __init__(self, values, exceedance_frequencies, time_unit=None, value_unit=None):
+
+        if len(values) != len(exceedance_frequencies):
+            raise ValueError(
+                f"Number of threshold values {len(values)} different to number of exceedance frequencies {len(exceedance_frequencies)}"
+            )
+        self.values = values
+        self.exceedance_frequencies = exceedance_frequencies
+        self.time_unit = time_unit if time_unit is not None else "year"
+        self.value_unit = value_unit if value_unit is not None else "USD"
+
+    def average_annual_impact(self):
+        if self.time_unit != "year":
+            raise ValueError(
+                "Time unit must year 'year' to compute average annual impact"
+            )
+        if self.value_unit not in ["CHF", "EUR", "USD"]:
+            raise ValueError(
+                "To compute average annual impact, unit must be a currency."
+            )
+
+        # choose time interval such that two events coocurring are negligible
+        time_window = 0.0001
+        # frequencies = frequency_from_exceedance_frequency(self.exceedance_frequencies)
+        probabilities = prob_from_exceedance_frequency(
+            self.exceedance_frequencies, coincidence_fraction=time_window
+        )
+        probabilities = np.delete(probabilities, 0, axis=-1)
+        # print(self.exceedance_frequencies)
+        # print(frequencies)
+        return np.nansum(probabilities * self.values) / time_window
+
+    def plot_return_period_curve(self):
+        fig, ax = plt.subplots()
+        ax.plot(self.values, 1 / self.exceedance_frequencies)
+        ax.set_yscale("log")
+        ax.set_xlabel(f"Exceedance value ({self.value_unit})")
+        ax.set_ylabel(f"Return Period ({self.time_unit})")
+        return fig, ax
+
+    def plot_exceedance_instensity_curve(self):
+        fig, ax = plt.subplots()
+        ax.plot(1 / self.exceedance_frequencies, self.values)
+        ax.set_xscale("log")
+        ax.set_xlabel(f"Return Period ({self.time_unit})")
+        ax.set_ylabel(f"Exceedance value ({self.value_unit})")
+        return fig, ax
 
 
 def combine_exceedance_curves(
@@ -60,6 +116,8 @@ def combine_exceedance_curves(
         exceedance_frequency=exceedance_frequencies,
         coincidence_fraction=coincidence_fraction,
     )
+    print("single", np.nansum(probabilities * values, axis=-1) / coincidence_fraction)
+    print("sum", sum(np.nansum(probabilities * values, axis=-1)) / coincidence_fraction)
 
     # compute aggreagted values and probabilties
     final_values = values[0]
@@ -71,6 +129,7 @@ def combine_exceedance_curves(
             aggregation_method,
             value_resolution,
         )
+    print("agg", np.nansum(final_probabilities * final_values) / coincidence_fraction)
 
     final_exceedance_frequency = exceedance_frequency_from_prob(
         final_probabilities, coincidence_fraction=coincidence_fraction
@@ -84,7 +143,15 @@ def combine_exceedance_curves(
         time_unit=exceedance_curves[0].time_unit,
         value_unit=exceedance_curves[0].value_unit,
     )
-
+    print(
+        "final",
+        np.nansum(
+            final_values
+            * prob_from_exceedance_frequency(
+                final_exceedance_frequency, coincidence_fraction=1
+            )[1:]
+        ),
+    )
     return aggregated_return_period_curve
 
 
