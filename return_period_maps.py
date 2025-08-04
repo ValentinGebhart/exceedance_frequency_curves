@@ -2,7 +2,10 @@
 ReturnPeriodMap class
 """
 
-from exceedance_curves import ExceedanceCurve
+import numpy as np
+
+from exceedance_curves import ExceedanceCurve, combine_exceedance_curves
+from coordinates import change_grid_resolution
 
 
 class ReturnPeriodMap:
@@ -11,10 +14,44 @@ class ReturnPeriodMap:
         self.geometry = geometry
 
     def compute_aai_per_centroid(self):
-        return
+        return np.array(
+            [curve.average_annual_impact() for curve in self.exceedance_curves]
+        )
 
     def compute_aai_aggregated(self):
-        return
+        return np.sum(self.compute_aai_per_centroid())
+
+    def coarsen(
+        self,
+        scale_factor,
+        value_resolution=50.0,
+        aggregation_method=sum,
+        coincidence_fraction=1 / 12,
+    ):
+        new_geometry, assignment = change_grid_resolution(self.geometry, scale_factor)
+
+        # default emtpy exceedance_curves TBD
+        exceedance_curves = [
+            ExceedanceCurve(
+                values=np.full(2, np.NaN), exceedance_frequencies=np.full(2, np.NaN)
+            )
+            for j in range(new_geometry.size)
+        ]
+
+        for j in np.unique(assignment):
+            print(j)
+            exceedance_curves[j] = combine_exceedance_curves(
+                [
+                    curve
+                    for i, curve in enumerate(self.exceedance_curves)
+                    if assignment[i] == j
+                ],
+                value_resolution=value_resolution,
+                aggregation_method=aggregation_method,
+                coincidence_fraction=coincidence_fraction,
+            )
+
+        return ReturnPeriodMap(exceedance_curves, new_geometry)
 
     @classmethod
     def from_CLIMADA_local_exceedance_intensity(cls, local_exceedance_intensity):

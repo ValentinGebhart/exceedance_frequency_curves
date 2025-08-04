@@ -46,8 +46,6 @@ class ExceedanceCurve:
             self.exceedance_frequencies, coincidence_fraction=time_window
         )
         probabilities = np.delete(probabilities, 0, axis=-1)
-        # print(self.exceedance_frequencies)
-        # print(frequencies)
         return np.nansum(probabilities * self.values) / time_window
 
     def plot_return_period_curve(self):
@@ -116,8 +114,6 @@ def combine_exceedance_curves(
         exceedance_frequency=exceedance_frequencies,
         coincidence_fraction=coincidence_fraction,
     )
-    print("single", np.nansum(probabilities * values, axis=-1) / coincidence_fraction)
-    print("sum", sum(np.nansum(probabilities * values, axis=-1)) / coincidence_fraction)
 
     # compute aggreagted values and probabilties
     final_values = values[0]
@@ -129,7 +125,6 @@ def combine_exceedance_curves(
             aggregation_method,
             value_resolution,
         )
-    print("agg", np.nansum(final_probabilities * final_values) / coincidence_fraction)
 
     final_exceedance_frequency = exceedance_frequency_from_prob(
         final_probabilities, coincidence_fraction=coincidence_fraction
@@ -143,15 +138,7 @@ def combine_exceedance_curves(
         time_unit=exceedance_curves[0].time_unit,
         value_unit=exceedance_curves[0].value_unit,
     )
-    print(
-        "final",
-        np.nansum(
-            final_values
-            * prob_from_exceedance_frequency(
-                final_exceedance_frequency, coincidence_fraction=1
-            )[1:]
-        ),
-    )
+
     return aggregated_return_period_curve
 
 
