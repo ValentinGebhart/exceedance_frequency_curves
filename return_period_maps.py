@@ -39,7 +39,6 @@ class ReturnPeriodMap:
         ]
 
         for j in np.unique(assignment):
-            print(j)
             exceedance_curves[j] = combine_exceedance_curves(
                 [
                     curve

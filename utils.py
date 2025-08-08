@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.stats import norm
 
 
 def round_to_array(obj, array):
@@ -36,10 +37,10 @@ def prob_from_exceedance_frequency(exceedance_frequency, coincidence_fraction=1 
     Returns:
     float or np.ndarray: The probability corresponding to the exceedance frequency.
     """
-    # convert time unit to coincidence window
-    ex_freq = exceedance_frequency * coincidence_fraction
     # compute probability of exceedance from exceedance frequency
-    probs_exceedance = 1 - np.exp(-ex_freq)
+    probs_exceedance = exceedance_probability_from_exceedance_frequency(
+        exceedance_frequency, coincidence_fraction
+    )
     # compute probabilities from exceedance probabilities
     probabilities = np.flip(
         np.diff(np.insert(np.flip(probs_exceedance, axis=-1), 0, 0.0, -1), axis=-1),
@@ -51,6 +52,24 @@ def prob_from_exceedance_frequency(exceedance_frequency, coincidence_fraction=1 
     )
 
     return probabilities
+
+
+def exceedance_probability_from_exceedance_frequency(
+    exceedance_frequency, coincidence_fraction=1 / 12
+):
+    # convert time unit to coincidence window
+    ex_freq = exceedance_frequency * coincidence_fraction
+    # compute probability of exceedance from exceedance frequency
+    return 1 - np.exp(-ex_freq)
+
+
+def exceedance_frequency_from_exceedance_probability(
+    exceedance_probability, coincidence_fraction=1 / 12
+):
+    # recover exceedance frequencies
+    ex_freq = -np.log(1 - exceedance_probability)
+    # Undo the scaling by coincidence_fraction
+    return ex_freq / coincidence_fraction
 
 
 def exceedance_frequency_from_prob(probabilities, coincidence_fraction=1 / 12):
@@ -83,3 +102,26 @@ def frequency_from_exceedance_frequency(exceedance_frequency):
         np.diff(np.insert(np.flip(exceedance_frequency, axis=-1), 0, 0.0, -1), axis=-1),
         axis=-1,
     )
+
+
+def get_correlated_quantiles(d, correlation_factor, n_samples):
+    # create covariance matrix
+    if d == 1 or correlation_factor == 0:
+        return np.random.random(size=(n_samples, d))
+
+    cov_matrix = np.full((d, d), correlation_factor)
+    cov_matrix += np.diag(np.full(d, 1.0 - correlation_factor))
+
+    # check if given values lead to positive definite covariance matrix
+    if correlation_factor > 1 or correlation_factor < -1 / (d - 1):
+        raise ValueError(
+            f"Given parameters (correlation factor {correlation_factor} and dimension {d}) result"
+            f" in non positive definite covariance matrix for sampling"
+        )
+
+    # sample from multivariate normal distribtuion
+    mean = np.zeros(d)
+    normal_samples = np.random.multivariate_normal(mean, cov_matrix, size=n_samples)
+
+    # transform normal samples to uniform(0, 1)
+    return norm.cdf(normal_samples)
