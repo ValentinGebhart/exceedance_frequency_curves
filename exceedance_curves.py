@@ -26,6 +26,7 @@ class ExceedanceCurve:
         self.value_unit = value_unit if value_unit is not None else "USD"
 
     def average_annual_impact(self):
+        """compute average annual impact"""
         if self.time_unit != "year":
             raise ValueError(
                 "Time unit must year 'year' to compute average annual impact"
@@ -35,16 +36,14 @@ class ExceedanceCurve:
                 "To compute average annual impact, unit must be a currency."
             )
 
-        # choose time interval such that two events coocurring are negligible
-        time_window = 0.0001
-        # frequencies = frequency_from_exceedance_frequency(self.exceedance_frequencies)
-        probabilities = utils.prob_from_exceedance_frequency(
-            self.exceedance_frequencies, coincidence_fraction=time_window
+        frequencies = utils.frequency_from_exceedance_frequency(
+            self.exceedance_frequencies
         )
-        probabilities = np.delete(probabilities, 0, axis=-1)
-        return np.nansum(probabilities * self.values) / time_window
+
+        return np.nansum(frequencies * self.values)
 
     def plot_return_period_curve(self):
+        """plot return period  curve (return period over impact or intensity)"""
         fig, ax = plt.subplots()
         ax.plot(self.values, 1 / self.exceedance_frequencies)
         ax.set_yscale("log")
@@ -53,6 +52,7 @@ class ExceedanceCurve:
         return fig, ax
 
     def plot_exceedance_instensity_curve(self):
+        """plot exceedance curve (impact or intensity over return period)"""
         fig, ax = plt.subplots()
         ax.plot(1 / self.exceedance_frequencies, self.values)
         ax.set_xscale("log")
@@ -91,13 +91,14 @@ def combine_exceedance_curves(
     values = np.array(
         [return_period_curve.values for return_period_curve in exceedance_curves]
     )
-    if value_resolution is None:
-        value_resolution = np.nanmin(np.diff(values, axis=1))
-    # round values to resolution
-    value_bins = np.arange(
-        np.nanmin(values), np.nanmax(values) + value_resolution, value_resolution
-    )
-    values = utils.round_to_array(values, value_bins)
+    if not use_sampling:
+        if value_resolution is None:
+            value_resolution = np.nanmin(np.diff(values, axis=1))
+        # round values to resolution
+        value_bins = np.arange(
+            np.nanmin(values), np.nanmax(values) + value_resolution, value_resolution
+        )
+        values = utils.round_to_array(values, value_bins)
     # add zeros corresponding to nothing happens probability
     values = np.insert(values, 0, 0.0, axis=-1)
 
