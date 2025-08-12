@@ -25,7 +25,7 @@ class ExceedanceCurve:
         self.time_unit = time_unit if time_unit is not None else "year"
         self.value_unit = value_unit if value_unit is not None else "USD"
 
-    def average_annual_impact(self):
+    def average_annual_impact(self, coincidence_fraction=None):
         """compute average annual impact"""
         if self.time_unit != "year":
             raise ValueError(
@@ -35,10 +35,14 @@ class ExceedanceCurve:
             raise ValueError(
                 "To compute average annual impact, unit must be a currency."
             )
-
-        frequencies = utils.frequency_from_exceedance_frequency(
-            self.exceedance_frequencies
-        )
+        if coincidence_fraction:
+            frequencies = utils.prob_from_exceedance_frequency(
+                self.exceedance_frequencies, coincidence_fraction=coincidence_fraction
+            )[1:]/coincidence_fraction
+        else:
+            frequencies = utils.frequency_from_exceedance_frequency(
+                self.exceedance_frequencies
+            )
 
         return np.nansum(frequencies * self.values)
 
@@ -68,7 +72,7 @@ def combine_exceedance_curves(
     coincidence_fraction=1 / 12,
     use_sampling=True,
     correlation_factor=0.0,
-    n_samples=1000,
+    n_samples=10000,
 ):
     """_summary_
 
