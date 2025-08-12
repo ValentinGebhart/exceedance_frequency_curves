@@ -38,7 +38,9 @@ def prob_from_exceedance_frequency(exceedance_frequency, coincidence_fraction=1 
     float or np.ndarray: The probability corresponding to the exceedance frequency.
     """
     if not np.all(np.diff(exceedance_frequency, axis=-1) <= 0):
-        raise ValueError("Array must be sorted to convert from exceedance frequency to probability")
+        raise ValueError(
+            "Array must be sorted to convert from exceedance frequency to probability"
+        )
 
     # compute probability of exceedance from exceedance frequency
     probs_exceedance = exceedance_probability_from_exceedance_frequency(
@@ -102,7 +104,9 @@ def exceedance_frequency_from_prob(probabilities, coincidence_fraction=1 / 12):
 
 def frequency_from_exceedance_frequency(exceedance_frequency):
     if not np.all(np.diff(exceedance_frequency, axis=-1) <= 0):
-        raise ValueError("Array must be sorted to convert from exceedance frequency to frequency")
+        raise ValueError(
+            "Array must be sorted to convert from exceedance frequency to frequency"
+        )
 
     return np.flip(
         np.diff(np.insert(np.flip(exceedance_frequency, axis=-1), 0, 0.0, -1), axis=-1),
@@ -122,7 +126,8 @@ def get_correlated_quantiles(d, correlation_factor, n_samples):
     if correlation_factor > 1 or correlation_factor < -1 / (d - 1):
         raise ValueError(
             f"Given parameters (correlation factor {correlation_factor} and dimension {d}) result"
-            f" in non positive definite covariance matrix for sampling"
+            f" in non positive definite covariance matrix for sampling. The values must fulfill"
+            "correlation_factor >= -1 / (d - 1)."
         )
 
     # sample from multivariate normal distribtuion
@@ -131,6 +136,7 @@ def get_correlated_quantiles(d, correlation_factor, n_samples):
 
     # transform normal samples to uniform(0, 1)
     return norm.cdf(normal_samples)
+
 
 def sort_two_arrays_by_first(arr1, arr2, ascending=True):
     if ascending:

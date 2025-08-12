@@ -13,42 +13,44 @@ class ReturnPeriodMap:
         self.exceedance_curves = exceedance_curves
         self.geometry = geometry
 
-    def compute_aai_per_centroid(self):
+    def compute_aai_per_centroid(self, coincidence_fraction=None):
         return np.array(
-            [curve.average_annual_impact() for curve in self.exceedance_curves]
+            [
+                curve.average_annual_impact(coincidence_fraction=coincidence_fraction)
+                for curve in self.exceedance_curves
+            ]
         )
 
-    def compute_aai_aggregated(self):
-        return np.sum(self.compute_aai_per_centroid())
+    def compute_aai_aggregated(self, coincidence_fraction=None):
+        return np.sum(
+            self.compute_aai_per_centroid(coincidence_fraction=coincidence_fraction)
+        )
 
     def coarsen(
         self,
         scale_factor,
-        value_resolution=50.0,
-        aggregation_method=sum,
-        coincidence_fraction=1 / 12,
+        kwargs_combine_exceedance_curves=None,
     ):
+        if kwargs_combine_exceedance_curves is None:
+            kwargs_combine_exceedance_curves = {}
         new_geometry, assignment = change_grid_resolution(self.geometry, scale_factor)
 
         # default emtpy exceedance_curves TBD
         exceedance_curves = [
-            ExceedanceCurve(
-                values=np.full(2, np.NaN), exceedance_frequencies=np.full(2, np.NaN)
-            )
-            for j in range(new_geometry.size)
-        ]
-
-        for j in np.unique(assignment):
-            exceedance_curves[j] = combine_exceedance_curves(
+            combine_exceedance_curves(
                 [
                     curve
                     for i, curve in enumerate(self.exceedance_curves)
                     if assignment[i] == j
                 ],
-                value_resolution=value_resolution,
-                aggregation_method=aggregation_method,
-                coincidence_fraction=coincidence_fraction,
+                **kwargs_combine_exceedance_curves
             )
+            for j in np.unique(assignment)
+        ]
+
+        new_geometry = new_geometry[
+            [(j in assignment) for j in range(len(new_geometry))]
+        ]
 
         return ReturnPeriodMap(exceedance_curves, new_geometry)
 

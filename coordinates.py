@@ -54,20 +54,20 @@ def change_grid_resolution(geometry, scale_factor):
     grid_dict = _infer_grid_parameter(geometry)
     step_lon = scale_factor * grid_dict["resolution_lon"]
     step_lat = scale_factor * grid_dict["resolution_lat"]
+    offset_lon = (scale_factor - 1) / 2 * grid_dict["resolution_lon"]
+    offset_lat = (scale_factor - 1) / 2 * grid_dict["resolution_lat"]
 
     new_geometry = gpd.GeoSeries(
         [
             Point(x, y)
             for x in np.arange(
-                grid_dict["minlon"]
-                + (scale_factor - 1) / 2 * grid_dict["resolution_lon"],
-                grid_dict["maxlon"],
+                grid_dict["minlon"] + offset_lon,
+                grid_dict["maxlon"] + offset_lon,
                 step_lon,
             )
             for y in np.arange(
-                grid_dict["minlat"]
-                + (scale_factor - 1) / 2 * grid_dict["resolution_lat"],
-                grid_dict["maxlat"],
+                grid_dict["minlat"] + offset_lat,
+                grid_dict["maxlat"] + offset_lat,
                 step_lat,
             )
         ],

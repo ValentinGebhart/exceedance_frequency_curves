@@ -36,9 +36,13 @@ class ExceedanceCurve:
                 "To compute average annual impact, unit must be a currency."
             )
         if coincidence_fraction:
-            frequencies = utils.prob_from_exceedance_frequency(
-                self.exceedance_frequencies, coincidence_fraction=coincidence_fraction
-            )[1:]/coincidence_fraction
+            frequencies = (
+                utils.prob_from_exceedance_frequency(
+                    self.exceedance_frequencies,
+                    coincidence_fraction=coincidence_fraction,
+                )[1:]
+                / coincidence_fraction
+            )
         else:
             frequencies = utils.frequency_from_exceedance_frequency(
                 self.exceedance_frequencies
