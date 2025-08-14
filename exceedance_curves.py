@@ -99,6 +99,10 @@ def combine_exceedance_curves(
     values = np.array(
         [return_period_curve.values for return_period_curve in exceedance_curves]
     )
+    # fill NaN edges
+    if np.any(np.isnan(values)):
+        values = np.array([utils.fill_edges(row) for row in values])
+
     if not use_sampling:
         if value_resolution is None:
             value_resolution = np.nanmin(np.diff(values, axis=1))

@@ -144,3 +144,13 @@ def sort_two_arrays_by_first(arr1, arr2, ascending=True):
     else:
         order = np.argsort(arr1)[::-1]
     return arr1[order], arr2[order]
+
+def fill_edges(a):
+    not_nan = ~np.isnan(a)
+    if not np.any(not_nan):
+        return a  # all NaN, nothing to fill
+    first = np.argmax(not_nan)
+    last = len(a) - np.argmax(not_nan[::-1]) - 1
+    a[:first] = a[first]
+    a[last+1:] = a[last]
+    return a
