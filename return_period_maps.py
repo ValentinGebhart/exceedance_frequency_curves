@@ -3,9 +3,13 @@ ReturnPeriodMap class
 """
 
 import numpy as np
+import geopandas as gpd
+
+import climada.util.interpolation as u_interp
 
 from exceedance_curves import ExceedanceCurve, combine_exceedance_curves
 from coordinates import change_grid_resolution
+from utils import frequency_from_exceedance_frequency
 
 
 class ReturnPeriodMap:
@@ -53,6 +57,48 @@ class ReturnPeriodMap:
         ]
 
         return ReturnPeriodMap(exceedance_curves, new_geometry)
+
+    def get_local_exceedance_intensity(
+        self,
+        return_periods,
+        method="interpolate",
+        label="Impact",
+    ):
+        exceedance_frequency = 1/np.array(return_periods)
+
+        exceedance_values = np.array(
+                [
+                    u_interp.preprocess_and_interpolate_ev(
+                        exceedance_frequency,
+                        None,
+                        frequency_from_exceedance_frequency(self.exceedance_curves[i_centroid].exceedance_frequencies),
+                        self.exceedance_curves[i_centroid].values,
+                        log_frequency=True,
+                        log_values=True,
+                        value_threshold=0.,
+                        method=method,
+                        y_asymptotic=0.0,
+                        # bin_decimals=bin_decimals,
+                    )
+                    for i_centroid in range(len(self.exceedance_curves))
+                ]
+            )
+
+        gdf = gpd.GeoDataFrame(
+            geometry=self.geometry
+        )
+        col_names = [f"{ret_per}" for ret_per in return_periods]
+        gdf[col_names] = exceedance_values
+        # create label and column_label
+
+        def column_label(column_names):
+            return [
+                f"Return Period: {col} {self.exceedance_curves[0].time_unit}" for col in column_names
+            ]
+        
+        return gdf, label, column_label
+
+
 
     @classmethod
     def from_CLIMADA_local_exceedance_intensity(cls, local_exceedance_intensity):
