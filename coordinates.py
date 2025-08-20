@@ -15,7 +15,7 @@ from shapely.geometry.point import Point
 
 
 def _is_subgrid(geometry):
-    """checks if there are at least two points with same lat
+    """checks if geometry includes at least two points with same lat
     and two points with same lon
     """
     all_coords = np.array([geom.coords[0] for geom in geometry])
@@ -26,6 +26,7 @@ def _is_subgrid(geometry):
 
 
 def _infer_grid_parameter(geometry):
+    """infer grid parameters from geometry"""
 
     if not _is_subgrid(geometry):
         raise ValueError("Geometry does not seem to be a grid.")
@@ -51,6 +52,23 @@ def _infer_grid_parameter(geometry):
 
 
 def change_grid_resolution(geometry, scale_factor):
+    """creates a new grid by applying a scale_factor to a given geometry
+
+    Parameters
+    ----------
+    geometry : GeometryArray
+        initial centroids
+    scale_factor : float
+        factor by which the resolution should be changed. E.g., scale_factor == 2 results
+        in a grid with lon (lat) grid spacing equal to twice the minimal lon (lat)
+        difference in intial geometry.
+
+    Returns
+    -------
+    GeoSeries, np.array
+        Tuple with the the new geometry and the assigment with the index of the new nearest
+        new centroid for each of the initial centroids.
+    """
     grid_dict = _infer_grid_parameter(geometry)
     step_lon = scale_factor * grid_dict["resolution_lon"]
     step_lat = scale_factor * grid_dict["resolution_lat"]
@@ -87,19 +105,19 @@ def change_grid_resolution(geometry, scale_factor):
     return new_geometry, assignment
 
 
-def _change_grid_resolution_xarray(geometry, scale_factor):
+# def _change_grid_resolution_xarray(geometry, scale_factor):
 
-    all_coords = np.array([geom.coords[0] for geom in geometry]).T
+#     all_coords = np.array([geom.coords[0] for geom in geometry]).T
 
-    # Create grid as xarray Dataset
-    ds = xr.Dataset(coords={"lat": sorted(all_coords[1]), "lon": sorted(all_coords[0])})
+#     # Create grid as xarray Dataset
+#     ds = xr.Dataset(coords={"lat": sorted(all_coords[1]), "lon": sorted(all_coords[0])})
 
-    # Coarsen the coordinate grid (no interpolation)
-    coarse_ds = ds.coarsen(lat=scale_factor, lon=scale_factor, boundary="trim").reduce(
-        lambda x: x[::1]
-    )
+#     # Coarsen the coordinate grid (no interpolation)
+#     coarse_ds = ds.coarsen(lat=scale_factor, lon=scale_factor, boundary="trim").reduce(
+#         lambda x: x[::1]
+#     )
 
-    # Access the new coarsened grid
-    new_lat = coarse_ds.lat.values
-    new_lon = coarse_ds.lon.values
-    return new_lat, new_lon
+#     # Access the new coarsened grid
+#     new_lat = coarse_ds.lat.values
+#     new_lon = coarse_ds.lon.values
+#     return new_lat, new_lon

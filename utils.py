@@ -62,6 +62,7 @@ def prob_from_exceedance_frequency(exceedance_frequency, coincidence_fraction=1 
 def exceedance_probability_from_exceedance_frequency(
     exceedance_frequency, coincidence_fraction=1 / 12
 ):
+    """get exceedance probabilities from exceedance frequencies"""
     # convert time unit to coincidence window
     ex_freq = exceedance_frequency * coincidence_fraction
     # compute probability of exceedance from exceedance frequency
@@ -71,6 +72,7 @@ def exceedance_probability_from_exceedance_frequency(
 def exceedance_frequency_from_exceedance_probability(
     exceedance_probability, coincidence_fraction=1 / 12
 ):
+    """get exceedance frequencies from exceedance probabilities"""
     # recover exceedance frequencies
     ex_freq = -np.log(1 - exceedance_probability)
     # Undo the scaling by coincidence_fraction
@@ -95,14 +97,14 @@ def exceedance_frequency_from_prob(probabilities, coincidence_fraction=1 / 12):
     exceedance_probabilities = np.flip(
         np.cumsum(np.flip(probs, axis=-1), axis=-1), axis=-1
     )
-    # recover exceedance frequencies
-    ex_freq = -np.log(1 - exceedance_probabilities)
-    # Undo the scaling by coincidence_fraction
-    exceedance_frequency = ex_freq / coincidence_fraction
-    return exceedance_frequency
+
+    return exceedance_frequency_from_exceedance_probability(
+        exceedance_probabilities, coincidence_fraction
+    )
 
 
 def frequency_from_exceedance_frequency(exceedance_frequency):
+    """get frequencies from exceedance frequencies"""
     if not np.all(np.diff(exceedance_frequency, axis=-1) <= 0):
         raise ValueError(
             "Array must be sorted to convert from exceedance frequency to frequency"
@@ -115,20 +117,21 @@ def frequency_from_exceedance_frequency(exceedance_frequency):
 
 
 def get_correlated_quantiles(d, correlation_factor, n_samples):
+    """sample correlated quantiles"""
     # create covariance matrix
     if d == 1 or correlation_factor == 0:
         return np.random.random(size=(n_samples, d))
 
+    # check if given values lead to positive definite covariance matrix
+    if correlation_factor > 1 or correlation_factor < -1:
+        raise ValueError("Correlation factor must be between -1 and 1.")
+
+    # correct correlation factor for anticorrelation to make covariance matrix positive semidefinite.
+    if correlation_factor < 0:
+        correlation_factor *= 1 / (d - 1)
+
     cov_matrix = np.full((d, d), correlation_factor)
     cov_matrix += np.diag(np.full(d, 1.0 - correlation_factor))
-
-    # check if given values lead to positive definite covariance matrix
-    if correlation_factor > 1 or correlation_factor < -1 / (d - 1):
-        raise ValueError(
-            f"Given parameters (correlation factor {correlation_factor} and dimension {d}) result"
-            f" in non positive definite covariance matrix for sampling. The values must fulfill"
-            "correlation_factor >= -1 / (d - 1)."
-        )
 
     # sample from multivariate normal distribtuion
     mean = np.zeros(d)
@@ -145,6 +148,7 @@ def sort_two_arrays_by_first(arr1, arr2, ascending=True):
         order = np.argsort(arr1)[::-1]
     return arr1[order], arr2[order]
 
+
 def fill_edges(a):
     not_nan = ~np.isnan(a)
     if not np.any(not_nan):
@@ -152,5 +156,5 @@ def fill_edges(a):
     first = np.argmax(not_nan)
     last = len(a) - np.argmax(not_nan[::-1]) - 1
     a[:first] = a[first]
-    a[last+1:] = a[last]
+    a[last + 1 :] = a[last]
     return a

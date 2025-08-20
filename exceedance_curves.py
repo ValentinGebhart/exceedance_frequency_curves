@@ -12,13 +12,27 @@ import utils
 
 
 class ExceedanceCurve:
-    """_summary_"""
+    """ExceedanceCurve class"""
 
     def __init__(self, values, exceedance_frequencies, time_unit=None, value_unit=None):
+        """Initialize Exceedance Curve instance.
+
+        Parameters
+        ----------
+        values : np.ndarray of float
+            Values corresponding to intensity or imapct
+        exceedance_frequencies : np.ndarray of float
+            exceedance frequencies corresponding to values
+        time_unit : str, optional
+            Time unit of the exceedance frequencies. Defaults to "year".
+        value_unit : str, optional
+            Values unit of the values. Defaults to "USD".
+        """
 
         if len(values) != len(exceedance_frequencies):
             raise ValueError(
-                f"Number of threshold values {len(values)} different to number of exceedance frequencies {len(exceedance_frequencies)}"
+                f"Number of threshold values {len(values)} different to"
+                " number of exceedance frequencies {len(exceedance_frequencies)}"
             )
         self.values = values
         self.exceedance_frequencies = exceedance_frequencies
@@ -26,13 +40,29 @@ class ExceedanceCurve:
         self.value_unit = value_unit if value_unit is not None else "USD"
 
     def average_annual_impact(self, coincidence_fraction=None):
-        """compute average annual impact"""
+        """Compute average annual impact from exceedance impact curve
+
+        Parameters
+        ----------
+        coincidence_fraction : float, optional
+            Time window (as a fraction of the time unit) from which to compute probabilities.
+            During this time window, the occurence of several impact will be neglected, and
+            only the largest is considered. By default, exceedance frequencies will be converted
+            to frequencies, which will be multiplied and summed for the AAI. This corresponds to
+            choosing a very small coincidence_fraction.
+
+        Returns
+        -------
+        float
+            average annual imapct
+        """
         if self.time_unit != "year":
             raise ValueError(
                 "Time unit must year 'year' to compute average annual impact"
             )
         if self.value_unit not in ["CHF", "EUR", "USD"]:
             raise ValueError(
+                f"Value unit {self.value_unit} not recognized (must be of CHF, EUR, or USD). "
                 "To compute average annual impact, unit must be a currency."
             )
         if coincidence_fraction:
@@ -50,18 +80,46 @@ class ExceedanceCurve:
 
         return np.nansum(frequencies * self.values)
 
-    def plot_return_period_curve(self):
-        """plot return period  curve (return period over impact or intensity)"""
-        fig, ax = plt.subplots()
+    def plot_return_period_curve(self, axis=None):
+        """Plot return period  curve (return period over impact or intensity)
+
+        Parameters
+        ----------
+        axis : Axes, optional
+            by default None
+
+        Returns
+        -------
+        fig, axis
+        """
+        if axis is None:
+            fig, ax = plt.subplots()
+        else:
+            fig, ax = axis.get_figure(), axis
+
         ax.plot(self.values, 1 / self.exceedance_frequencies)
         ax.set_yscale("log")
         ax.set_xlabel(f"Exceedance value ({self.value_unit})")
         ax.set_ylabel(f"Return Period ({self.time_unit})")
         return fig, ax
 
-    def plot_exceedance_instensity_curve(self):
-        """plot exceedance curve (impact or intensity over return period)"""
-        fig, ax = plt.subplots()
+    def plot_exceedance_values_curve(self, axis=None):
+        """Plot exceedance curve (impact or intensity over return period)
+
+        Parameters
+        ----------
+        axis : Axes, optional
+            by default None
+
+        Returns
+        -------
+        fig, axis
+        """
+        if axis is None:
+            fig, ax = plt.subplots()
+        else:
+            fig, ax = axis.get_figure(), axis
+
         ax.plot(1 / self.exceedance_frequencies, self.values)
         ax.set_xscale("log")
         ax.set_xlabel(f"Return Period ({self.time_unit})")
@@ -71,29 +129,47 @@ class ExceedanceCurve:
 
 def combine_exceedance_curves(
     exceedance_curves,
-    value_resolution=None,
     aggregation_method=sum,
     coincidence_fraction=1 / 12,
     use_sampling=True,
     correlation_factor=0.0,
     n_samples=10000,
+    value_resolution=None,
 ):
-    """_summary_
+    """Method to combine a number of exceedance curves
 
     Parameters
     ----------
-    exceedance_curves : _type_
-        _description_
-    value_resolution : _type_, optional
-        _description_, by default None
-    aggregation_method : _type_, optional
-        _description_, by default sum
-        note handling of  0
+    exceedance_curves : iterable of ExceedanceCurve
+        The exceedance curves to be combined
+    aggregation_method : callable, optional
+        Way to combine different values if they happend at the same time.
+        Defaults to sum.
+    coincidence_fraction : float, optional
+        Time window (as a fraction of the time unit) for which to consider two events as
+        coincident and to combine their values. During this time window, the occurence of
+        several events from each exceedance curve will be neglected, and the largest value
+        for each is considered.
+        Defaults to 1/12.
+    use_sampling : bool, optional
+        If True, combined exceedance curve will be sampled. If False, the exceedance curves will be
+        combined by multiplying all corresponding probabilities. Defaults to True.
+    correlation_factor : float, optional
+        Only applied if use_sampling=True. In the sampling of from the different exceedance curves,
+        a correlation factor is applied. If 1., sampled values are perfecly correlated (e.g., the
+        largest values are drawn together). If 0., sampling is independent. If -1., sampled values
+        are anticorrelated. Defaults to 0.
+    n_samples : int, optional
+        Only applied if use_sampling=True. Number of samples to use for the estimation
+        of the combined exceedance curve. Defaults to 10000.
+    value_resolution : float, optional
+        Only applied if use_sampling=False. Resultion of the values to use when computing and
+         aggregating all different combinations of values. Defaults to None.
 
     Returns
     -------
-    _type_
-        _description_
+    ExceedanceCurve
+        combined exceedance curve
     """
     # prepare values
     values = np.array(
@@ -135,8 +211,10 @@ def combine_exceedance_curves(
         sampled_values = _sample_from_prob_sets(
             values, exceedance_probabilities, correlation_factor, n_samples
         )
-        final_values, exceedance_probabilities = _exceedance_frequency_agg_from_sample(
-            sampled_values, aggregation_method
+        final_values, exceedance_probabilities = (
+            _exceedance_probabilities_agg_from_sample(
+                sampled_values, aggregation_method
+            )
         )
 
         final_exceedance_frequency = (
@@ -183,17 +261,8 @@ def _combine_two_prob_sets(
     aggregation_method,
     value_resolution,
 ):
-    """
-
-    Parameters
-    ----------
-    values : _type_
-        _description_
-    probabilities : _type_
-        _description_
-    aggregation_method : _type_
-        _description_
-    """
+    """Combining two probabilistic sets by mutliplication of all possible combinations and
+    aggregation the values, using a given value resolution"""
     values = [probabilistic_set1[0], probabilistic_set2[0]]
     probabilities = [probabilistic_set1[1], probabilistic_set2[1]]
 
@@ -236,15 +305,15 @@ def _combine_two_prob_sets(
 def _sample_from_prob_sets(
     values, exceedance_probabilities, correlation_factor, n_samples
 ):
+    """Sampling n_samples samples from different probabilitic sets (each including
+    values and corresponding probabilities), using a correlation factor."""
     vals = np.flip(values, axis=-1)
     ex_freq = np.flip(exceedance_probabilities, axis=-1)
-    # print("values", values)
-    # print("exceedance_probabilities", exceedance_probabilities)
     n_prob_sets = vals.shape[0]
     quantile_samples = utils.get_correlated_quantiles(
         n_prob_sets, correlation_factor, n_samples
     ).T
-    # print("samples", quantile_samples)
+
     # Use searchsorted to find how many quantiles each sample surpasses
     indices = np.array(
         [
@@ -254,15 +323,14 @@ def _sample_from_prob_sets(
     )
 
     sampled_values = np.array([vals[j][index] for j, index in enumerate(indices)])
-    # print("sampled values")
-    # print(sampled_values)
     return sampled_values
 
 
-def _exceedance_frequency_agg_from_sample(
+def _exceedance_probabilities_agg_from_sample(
     sampled_values,
     aggregation_method,
 ):
+    """compute exceedance probabilities from the aggragation of values"""
     sampled_aggregated_values = np.apply_along_axis(
         aggregation_method, axis=0, arr=sampled_values
     )
