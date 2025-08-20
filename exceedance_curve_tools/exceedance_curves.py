@@ -8,7 +8,7 @@ from itertools import product
 import numpy as np
 import matplotlib.pyplot as plt
 
-import utils
+import exceedance_curve_tools.utils as utils
 
 
 class ExceedanceCurve:

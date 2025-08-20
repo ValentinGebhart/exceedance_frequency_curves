@@ -7,9 +7,9 @@ import geopandas as gpd
 
 import climada.util.interpolation as u_interp
 
-from exceedance_curves import ExceedanceCurve, combine_exceedance_curves
-from coordinates import change_grid_resolution
-from utils import frequency_from_exceedance_frequency
+from exceedance_curve_tools.exceedance_curves import ExceedanceCurve, combine_exceedance_curves
+from exceedance_curve_tools.coordinates import change_grid_resolution
+from exceedance_curve_tools.utils import frequency_from_exceedance_frequency
 
 
 class ReturnPeriodMap:

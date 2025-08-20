@@ -1,3 +1,5 @@
+"""utils"""
+
 import numpy as np
 from scipy.stats import norm
 
@@ -11,7 +13,8 @@ def round_to_array(obj, array):
     arr (array-like): The 1-D array of values to round to.
 
     Returns:
-    np.ndarray: An array with the same shape as `obj`, where each element is replaced by the closest value from `arr`.
+    np.ndarray: An array with the same shape as `obj`, where each
+    element is replaced by the closest value from `arr`.
     """
     obj = np.asarray(obj)
     array = np.asarray(array)
@@ -32,7 +35,8 @@ def prob_from_exceedance_frequency(exceedance_frequency, coincidence_fraction=1 
     Parameters:
     exceedance_frequency (float or array-like): The exceedance frequency.
     time_unit (str): The time unit for the return period (default is "year").
-    coincidence_fraction (float): Fraction of the year that the event coincides with (default is 1/12).
+    coincidence_fraction (float): Fraction of the year that the event coincides with
+    (default is 1/12).
 
     Returns:
     float or np.ndarray: The probability corresponding to the exceedance frequency.
@@ -50,7 +54,7 @@ def prob_from_exceedance_frequency(exceedance_frequency, coincidence_fraction=1 
     probabilities = np.flip(
         np.diff(np.insert(np.flip(probs_exceedance, axis=-1), 0, 0.0, -1), axis=-1),
         axis=-1,
-    )  # probabilities = np.concatenate([np.expand_dims(1- np.sum(probabilities, axis=-1), axis=-1), probabilities])
+    )
     # include probability for nothing happening
     probabilities = np.insert(
         probabilities, 0, 1 - np.sum(probabilities, axis=-1), axis=-1
@@ -84,12 +88,17 @@ def exceedance_frequency_from_prob(probabilities, coincidence_fraction=1 / 12):
     Inverse of prob_from_exceedance_frequency.
     Convert probabilities back to exceedance frequencies.
 
-    Parameters:
-    probabilities (float or array-like): Probabilities as returned by prob_from_exceedance_frequency.
-    coincidence_fraction (float): Fraction of the year that the event coincides with (default is 1/12).
+    Parameters
+    ----------
+    probabilities : float or array-like
+        Probabilities as returned by prob_from_exceedance_frequency.
+    coincidence_fraction : float, optional
+        Fraction of the year that the event coincides with (default is 1/12).
 
-    Returns:
-    float or np.ndarray: The exceedance frequencies corresponding to the probabilities.
+    Returns
+    -------
+    float or np.ndarray
+        The exceedance frequencies corresponding to the probabilities.
     """
     # Remove the probability for "nothing happening" (first entry)
     probs = np.delete(probabilities, 0, axis=-1)
@@ -126,7 +135,7 @@ def get_correlated_quantiles(d, correlation_factor, n_samples):
     if correlation_factor > 1 or correlation_factor < -1:
         raise ValueError("Correlation factor must be between -1 and 1.")
 
-    # correct correlation factor for anticorrelation to make covariance matrix positive semidefinite.
+    # correct correlation_factor to make covariance matrix positive semidefinite.
     if correlation_factor < 0:
         correlation_factor *= 1 / (d - 1)
 
@@ -141,15 +150,17 @@ def get_correlated_quantiles(d, correlation_factor, n_samples):
     return norm.cdf(normal_samples)
 
 
-def sort_two_arrays_by_first(arr1, arr2, ascending=True):
-    if ascending:
-        order = np.argsort(arr1)
-    else:
-        order = np.argsort(arr1)[::-1]
-    return arr1[order], arr2[order]
+# def sort_two_arrays_by_first(arr1, arr2, ascending=True):
+#     if ascending:
+#         order = np.argsort(arr1)
+#     else:
+#         order = np.argsort(arr1)[::-1]
+#     return arr1[order], arr2[order]
 
 
 def fill_edges(a):
+    """ fill initial (final) NaN values along axis 1 with first (final)
+    non-NaN value. NaNs in between non-NaNs are not filled."""
     not_nan = ~np.isnan(a)
     if not np.any(not_nan):
         return a  # all NaN, nothing to fill

@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "exceedance-curve-tools"
+version = "0.0.1"
+description = "Tools for combining exceedance curves and coarsed return period maps"
+license = "GPL-3.0-or-later"
+requires-python = ">=3.10,<3.12"
+dependencies = [
+    "climada",
+    "numpy",
+    "matplotlib",
+    "shapely",
+    "scipy",
+    "geopandas",
+]
+classifiers=[
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Risk Assessments",
+]
+
+[project.readme]
+file = "README.md"
+content-type = "text/markdown"
+
+[[project.authors]]
+name = "Valentin Gebhart"
+
+[tool.setuptools.packages.find]
+exclude = ["test*", "docs*"]

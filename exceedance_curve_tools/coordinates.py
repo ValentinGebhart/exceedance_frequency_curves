@@ -6,7 +6,6 @@ import warnings
 
 import numpy as np
 import geopandas as gpd
-import xarray as xr
 from scipy.spatial import cKDTree
 from shapely.geometry.point import Point
 
