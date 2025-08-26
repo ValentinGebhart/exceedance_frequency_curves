@@ -159,7 +159,7 @@ def get_correlated_quantiles(d, correlation_factor, n_samples):
 
 
 def fill_edges(a):
-    """ fill initial (final) NaN values along axis 1 with first (final)
+    """fill initial (final) NaN values along axis 1 with first (final)
     non-NaN value. NaNs in between non-NaNs are not filled."""
     not_nan = ~np.isnan(a)
     if not np.any(not_nan):

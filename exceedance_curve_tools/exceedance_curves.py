@@ -34,7 +34,7 @@ class ExceedanceCurve:
                 f"Number of threshold values {len(values)} different to"
                 " number of exceedance frequencies {len(exceedance_frequencies)}"
             )
-        self.values = values
+        self.values = values.astype(float)
         self.exceedance_frequencies = exceedance_frequencies
         self.time_unit = time_unit if time_unit is not None else "year"
         self.value_unit = value_unit if value_unit is not None else "USD"
