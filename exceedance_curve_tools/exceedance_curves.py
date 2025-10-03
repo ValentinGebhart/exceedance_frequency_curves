@@ -80,13 +80,14 @@ class ExceedanceCurve:
 
         return np.nansum(frequencies * self.values)
 
-    def plot_return_period_curve(self, axis=None):
+    def plot_return_period_curve(self, axis=None, **kwargs):
         """Plot return period  curve (return period over impact or intensity)
 
         Parameters
         ----------
         axis : Axes, optional
             by default None
+        kwargs : kwargs for plt.plot
 
         Returns
         -------
@@ -97,13 +98,13 @@ class ExceedanceCurve:
         else:
             fig, ax = axis.get_figure(), axis
 
-        ax.plot(self.values, 1 / self.exceedance_frequencies)
-        ax.set_yscale("log")
+        ax.plot(self.values, 1 / self.exceedance_frequencies, **kwargs)
+        # ax.set_xscale("log")
         ax.set_xlabel(f"Exceedance value ({self.value_unit})")
         ax.set_ylabel(f"Return Period ({self.time_unit})")
         return fig, ax
 
-    def plot_exceedance_values_curve(self, axis=None):
+    def plot_exceedance_curve(self, axis=None, **kwargs):
         """Plot exceedance curve (impact or intensity over return period)
 
         Parameters
@@ -120,8 +121,8 @@ class ExceedanceCurve:
         else:
             fig, ax = axis.get_figure(), axis
 
-        ax.plot(1 / self.exceedance_frequencies, self.values)
-        ax.set_xscale("log")
+        ax.plot(1 / self.exceedance_frequencies, self.values, **kwargs)
+        # ax.set_yscale("log")
         ax.set_xlabel(f"Return Period ({self.time_unit})")
         ax.set_ylabel(f"Exceedance value ({self.value_unit})")
         return fig, ax
