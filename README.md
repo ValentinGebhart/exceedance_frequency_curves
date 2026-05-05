@@ -15,7 +15,7 @@ resultion, four exceedance curves must be combined into a single one, which can 
 
 **Requirements**
 
-All provided functionality and demnostrator notebooks can be run using a python environment with the [`climada`](https://github.com/CLIMADA-project/climada_python) package installed. If CLIMADA-related functionality is not required, a python environment with `geopandas`, `matplotlib`, `numpy`, `scipy`, and `shapely` is sufficient.
+All provided functionality and demnostrator notebooks can be run using a python environment with the [`climada`](https://github.com/CLIMADA-project/climada_python) package (version >= 6.0) installed. If CLIMADA-related functionality is not required, a python environment with `geopandas`, `matplotlib`, `numpy`, `scipy`, and `shapely` is sufficient.
 
 **Demonstator notebooks**
 

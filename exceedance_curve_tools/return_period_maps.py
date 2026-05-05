@@ -12,7 +12,7 @@ from exceedance_curve_tools.exceedance_curves import (
     combine_exceedance_curves,
 )
 from exceedance_curve_tools.coordinates import change_grid_resolution
-from exceedance_curve_tools.utils import frequency_from_exceedance_frequency
+from exceedance_curve_tools.utils import freq_from_ex_freq
 
 
 class ReturnPeriodMap:
@@ -221,7 +221,7 @@ class ReturnPeriodMap:
                 u_interp.preprocess_and_interpolate_ev(
                     exceedance_frequency,
                     None,
-                    frequency_from_exceedance_frequency(
+                    freq_from_ex_freq(
                         self.exceedance_curves[i_centroid].exceedance_frequencies
                     ),
                     self.exceedance_curves[i_centroid].values,

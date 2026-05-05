@@ -14,30 +14,42 @@ import exceedance_curve_tools.utils as utils
 class ExceedanceCurve:
     """ExceedanceCurve class"""
 
-    def __init__(self, values, exceedance_frequencies, time_unit=None, value_unit=None):
+    def __init__(
+        self,
+        values,
+        exceedance_frequencies,
+        time_unit=None,
+        value_unit=None,
+        aggregation_time_fraction=None,
+    ):
         """Initialize Exceedance Curve instance.
 
         Parameters
         ----------
         values : np.ndarray of float
-            Values corresponding to intensity or imapct
+            Values corresponding to intensity or impact
         exceedance_frequencies : np.ndarray of float
-            exceedance frequencies corresponding to values
+            Exceedance frequencies corresponding to values
         time_unit : str, optional
             Time unit of the exceedance frequencies. Defaults to "year".
         value_unit : str, optional
             Values unit of the values. Defaults to "USD".
+        aggregation_time_fraction : float or None, optional
+            Fraction of the time_unit attribued used to aggregate values, e.g.
+            1/12 for monthly aggregation when time_unit="year".
+            None for single events. Defaults to None.
         """
 
         if len(values) != len(exceedance_frequencies):
             raise ValueError(
-                f"Number of threshold values {len(values)} different to"
-                " number of exceedance frequencies {len(exceedance_frequencies)}"
+                f"Number of threshold values {len(values)} different to "
+                f"number of exceedance frequencies {len(exceedance_frequencies)}"
             )
         self.values = values.astype(float)
         self.exceedance_frequencies = exceedance_frequencies
         self.time_unit = time_unit if time_unit is not None else "year"
         self.value_unit = value_unit if value_unit is not None else "USD"
+        self.aggregation_time_fraction = aggregation_time_fraction
 
     def average_annual_impact(self, coincidence_fraction=None):
         """Compute average annual impact from exceedance impact curve
@@ -45,8 +57,9 @@ class ExceedanceCurve:
         Parameters
         ----------
         coincidence_fraction : float, optional
+            Only effective if aggregation_time_fraction of ExceedanceCurve is not None.
             Time window (as a fraction of the time unit) from which to compute probabilities.
-            During this time window, the occurence of several impact will be neglected, and
+            During this time window, the occurrence of several impacts will be neglected, and
             only the largest is considered. By default, exceedance frequencies will be converted
             to frequencies, which will be multiplied and summed for the AAI. This corresponds to
             choosing a very small coincidence_fraction.
@@ -54,29 +67,35 @@ class ExceedanceCurve:
         Returns
         -------
         float
-            average annual imapct
+            Average annual impact
         """
-        if self.time_unit != "year":
-            raise ValueError(
-                "Time unit must year 'year' to compute average annual impact"
-            )
         if self.value_unit not in ["CHF", "EUR", "USD"]:
             raise ValueError(
-                f"Value unit {self.value_unit} not recognized (must be of CHF, EUR, or USD). "
+                f"Value unit {self.value_unit} not recognized (must be CHF, EUR, or USD). "
                 "To compute average annual impact, unit must be a currency."
             )
+        if (
+            self.aggregation_time_fraction is not None
+            and coincidence_fraction is not None
+        ):
+            agg_per = utils.aggregation_period(
+                self.time_unit, self.aggregation_time_fraction
+            )
+            raise ValueError(
+                f"The exceedance curve corresponds to total impact aggregated per {agg_per}. "
+                "Use coincidence_fraction only if the exceedance curve corresponds to single events."
+            )
+        # Compute frequencies
         if coincidence_fraction:
             frequencies = (
-                utils.prob_from_exceedance_frequency(
+                utils.prob_from_ex_freq(
                     self.exceedance_frequencies,
                     coincidence_fraction=coincidence_fraction,
                 )[1:]
                 / coincidence_fraction
             )
         else:
-            frequencies = utils.frequency_from_exceedance_frequency(
-                self.exceedance_frequencies
-            )
+            frequencies = utils.freq_from_ex_freq(self.exceedance_frequencies)
 
         return np.nansum(frequencies * self.values)
 
@@ -99,8 +118,15 @@ class ExceedanceCurve:
             fig, ax = axis.get_figure(), axis
 
         ax.plot(self.values, 1 / self.exceedance_frequencies, **kwargs)
-        # ax.set_xscale("log")
-        ax.set_xlabel(f"Exceedance value ({self.value_unit})")
+        if self.aggregation_time_fraction is None:
+            ax.set_xlabel(f"Exceedance value ({self.value_unit})")
+        else:
+            agg_per = utils.aggregation_period(
+                self.time_unit, self.aggregation_time_fraction
+            )
+            ax.set_xlabel(
+                f"Exceedance value of total impacts per {agg_per} ({self.value_unit})"
+            )
         ax.set_ylabel(f"Return Period ({self.time_unit})")
         return fig, ax
 
@@ -124,8 +150,56 @@ class ExceedanceCurve:
         ax.plot(1 / self.exceedance_frequencies, self.values, **kwargs)
         # ax.set_yscale("log")
         ax.set_xlabel(f"Return Period ({self.time_unit})")
-        ax.set_ylabel(f"Exceedance value ({self.value_unit})")
+        if self.aggregation_time_fraction is None:
+            ax.set_ylabel(f"Exceedance value ({self.value_unit})")
+        else:
+            agg_per = utils.aggregation_period(
+                self.time_unit, self.aggregation_time_fraction
+            )
+            ax.set_ylabel(
+                f"Exceedance value of total impacts per {agg_per} ({self.value_unit})"
+            )
         return fig, ax
+
+    def sum_to_aggregation_time_fraction(
+        self, aggregation_time_fraction, n_sampled_periods, rng=None
+    ):
+        if self.aggregation_time_fraction is not None:
+            agg_per = utils.aggregation_period(
+                self.time_unit, self.aggregation_time_fraction
+            )
+            raise ValueError(
+                "Only single-event exceedance curves can be aggregated. The current exceedance "
+                f"curve is already aggreated to total impacts per {agg_per}."
+            )
+        if rng is None:
+            rng = np.random.default_rng()
+
+        frequencies = utils.freq_from_ex_freq(self.exceedance_frequencies)
+        lambda_poisson = np.sum(frequencies) * aggregation_time_fraction
+        n_events = rng.poisson(lam=lambda_poisson, size=n_sampled_periods)
+        weights = frequencies / np.sum(frequencies)
+
+        sampled_cum_impacts = np.array(
+            [
+                rng.choice(self.values, size=n, replace=True, p=weights).sum()
+                for n in n_events
+            ]
+        )
+        sampled_cum_impacts = np.sort(sampled_cum_impacts)
+        ex_freq = (
+            np.arange(1, n_sampled_periods + 1)[::-1]
+            / n_sampled_periods
+            / aggregation_time_fraction
+        )
+
+        return ExceedanceCurve(
+            values=sampled_cum_impacts,
+            exceedance_frequencies=ex_freq,
+            time_unit=self.time_unit,
+            value_unit=self.value_unit,
+            aggregation_time_fraction=aggregation_time_fraction,
+        )
 
 
 def combine_exceedance_curves(
@@ -136,6 +210,7 @@ def combine_exceedance_curves(
     correlation_factor=0.0,
     n_samples=10000,
     value_resolution=None,
+    rng=None,
 ):
     """Method to combine a number of exceedance curves
 
@@ -172,6 +247,8 @@ def combine_exceedance_curves(
     ExceedanceCurve
         combined exceedance curve
     """
+    if rng is None:
+        rng = np.random.default_rng()
     # prepare values
     values = np.array(
         [return_period_curve.values for return_period_curve in exceedance_curves]
@@ -201,16 +278,14 @@ def combine_exceedance_curves(
 
     if use_sampling:
         # convert to probabilities
-        exceedance_probabilities = (
-            utils.exceedance_probability_from_exceedance_frequency(
-                exceedance_frequencies,
-                coincidence_fraction,
-            )
+        exceedance_probabilities = utils.ex_prob_from_ex_freq(
+            exceedance_frequencies,
+            coincidence_fraction,
         )
         # add exceedance_probability of nothing happening
         exceedance_probabilities = np.insert(exceedance_probabilities, 0, 1.0, axis=-1)
         sampled_values = _sample_from_prob_sets(
-            values, exceedance_probabilities, correlation_factor, n_samples
+            values, exceedance_probabilities, correlation_factor, n_samples, rng
         )
         final_values, exceedance_probabilities = (
             _exceedance_probabilities_agg_from_sample(
@@ -218,14 +293,12 @@ def combine_exceedance_curves(
             )
         )
 
-        final_exceedance_frequency = (
-            utils.exceedance_frequency_from_exceedance_probability(
-                exceedance_probabilities, coincidence_fraction=coincidence_fraction
-            )
+        final_exceedance_frequency = utils.ex_freq_from_ex_prob(
+            exceedance_probabilities, coincidence_fraction=coincidence_fraction
         )
     else:
         # convert to probabilities
-        probabilities = utils.prob_from_exceedance_frequency(
+        probabilities = utils.prob_from_ex_freq(
             exceedance_frequency=exceedance_frequencies,
             coincidence_fraction=coincidence_fraction,
         )
@@ -240,7 +313,7 @@ def combine_exceedance_curves(
                 value_resolution,
             )
 
-        final_exceedance_frequency = utils.exceedance_frequency_from_prob(
+        final_exceedance_frequency = utils.ex_freq_from_prob(
             final_probabilities, coincidence_fraction=coincidence_fraction
         )
         # remove nothing happens bin
@@ -304,15 +377,17 @@ def _combine_two_prob_sets(
 
 
 def _sample_from_prob_sets(
-    values, exceedance_probabilities, correlation_factor, n_samples
+    values, exceedance_probabilities, correlation_factor, n_samples, rng=None
 ):
     """Sampling n_samples samples from different probabilitic sets (each including
     values and corresponding probabilities), using a correlation factor."""
+    if rng is None:
+        rng = np.random.default_rng()
     vals = np.flip(values, axis=-1)
     ex_freq = np.flip(exceedance_probabilities, axis=-1)
     n_prob_sets = vals.shape[0]
     quantile_samples = utils.get_correlated_quantiles(
-        n_prob_sets, correlation_factor, n_samples
+        n_prob_sets, correlation_factor, n_samples, rng
     ).T
 
     # Use searchsorted to find how many quantiles each sample surpasses

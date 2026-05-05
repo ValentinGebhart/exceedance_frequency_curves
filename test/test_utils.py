@@ -8,11 +8,10 @@ import numpy as np
 
 from exceedance_curve_tools import utils
 
-
 class TestFrequencyFunc(unittest.TestCase):
     """Test frequency and probability conversion functions."""
 
-    def test_prob_from_exceedance_frequency(self):
+    def test_prob_from_ex_freq(self):
         """Test converting exceedance frequencies to probabilities."""
 
         # generate test execeedance frequencies
@@ -24,7 +23,7 @@ class TestFrequencyFunc(unittest.TestCase):
         )
 
         # test shape of output
-        probabilities = utils.prob_from_exceedance_frequency(
+        probabilities = utils.prob_from_ex_freq(
             exceedance_frequencies, coincidence_fraction=1
         )
         np.testing.assert_equal(
@@ -45,7 +44,7 @@ class TestFrequencyFunc(unittest.TestCase):
         )
 
         # only one array as input
-        probabilities_single = utils.prob_from_exceedance_frequency(
+        probabilities_single = utils.prob_from_ex_freq(
             exceedance_frequencies[0], coincidence_fraction=1
         )
         np.testing.assert_array_almost_equal(
@@ -54,7 +53,7 @@ class TestFrequencyFunc(unittest.TestCase):
         )
 
         # probabilities with coincidence fraction
-        probabilities = utils.prob_from_exceedance_frequency(
+        probabilities = utils.prob_from_ex_freq(
             exceedance_frequencies, coincidence_fraction=1 / 12
         )
         np.testing.assert_array_almost_equal(
@@ -62,7 +61,7 @@ class TestFrequencyFunc(unittest.TestCase):
             np.exp(-exceedance_frequencies[:, 0] * (1 / 12)),
         )
 
-    def test_exceedance_frequency_from_prob(self):
+    def test_ex_freq_from_prob(self):
         """Test converting probabilities to exceedance frequencies."""
 
         # generate test execeedance frequencies
@@ -74,7 +73,7 @@ class TestFrequencyFunc(unittest.TestCase):
         )
 
         # test shape of output
-        exceedance_frequencies = utils.exceedance_frequency_from_prob(
+        exceedance_frequencies = utils.ex_freq_from_prob(
             probabilities, coincidence_fraction=1
         )
         np.testing.assert_equal(
@@ -82,15 +81,15 @@ class TestFrequencyFunc(unittest.TestCase):
             probabilities.shape,
         )
 
-        # check inverse of prob_from_exceedance_frequency
+        # check inverse of prob_from_ex_freq
         np.testing.assert_array_almost_equal(
             probabilities,
-            utils.prob_from_exceedance_frequency(
+            utils.prob_from_ex_freq(
                 exceedance_frequencies, coincidence_fraction=1
             ),
         )
 
-    def test_frequency_from_exceedance_frequency(self):
+    def test_freq_from_ex_freq(self):
         """test converting exceedance frequency to frequency"""
         exceedance_frequency = np.array(
             [
@@ -100,7 +99,7 @@ class TestFrequencyFunc(unittest.TestCase):
             ]
         )
         np.testing.assert_array_almost_equal(
-            utils.frequency_from_exceedance_frequency(exceedance_frequency),
+            utils.freq_from_ex_freq(exceedance_frequency),
             np.array(
                 [
                     [0.2, 0.3, 0.4, 0.1],
@@ -109,6 +108,25 @@ class TestFrequencyFunc(unittest.TestCase):
                 ]
             ),
         )
+    
+        def test_ex_freq_from_freq(self):
+            """test converting frequency to exceedance frequency"""
+            frequency = np.array(
+                [
+                    [0.1,0.1,0.1,0.1],
+                    [290, 9, 1, 0],
+                ]
+            )
+
+            np.testing.assert_array_almost_equal(
+                utils.ex_freq_from_freq(frequency),
+                np.array(
+                    [
+                        [0.4, 0.3, 0.2, 0.1],
+                        [300, 10, 1, 0],
+                    ]
+                ),
+            )
 
     def test_round_to_array(self):
         """Test rounding to array."""
@@ -136,7 +154,7 @@ class TestFrequencyFunc(unittest.TestCase):
         with self.assertRaises(ValueError):
             utils.round_to_array(obj, np.array([[1, 2], [3, 4]]))
 
-    def test_frecquency_from_exceedance_frequency(self):
+    def test_freq_from_ex_freq(self):
         """Test frequency from exceedance frequency."""
         exceedance_frequency = np.array(
             [
@@ -146,7 +164,7 @@ class TestFrequencyFunc(unittest.TestCase):
             ]
         )
         np.testing.assert_array_almost_equal(
-            utils.frequency_from_exceedance_frequency(exceedance_frequency),
+            utils.freq_from_ex_freq(exceedance_frequency),
             np.array(
                 [
                     [0.2, 0.3, 0.4, 0.1],
@@ -229,21 +247,21 @@ class TestMisc(unittest.TestCase):
         # generate test array
         arr = np.array(
             [
-                [1.0, 2.0, np.NaN, 5.0, 3.0],
-                [np.NaN, np.NaN, 4.0, np.NaN, np.NaN],
-                [np.NaN, 1.0, np.NaN, np.NaN, 3.0],
-                [1.0, 2.0, np.NaN, np.NaN, np.NaN],
-                [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+                [1.0, 2.0, np.nan, 5.0, 3.0],
+                [np.nan, np.nan, 4.0, np.nan, np.nan],
+                [np.nan, 1.0, np.nan, np.nan, 3.0],
+                [1.0, 2.0, np.nan, np.nan, np.nan],
+                [np.nan, np.nan, np.nan, np.nan, np.nan],
             ]
         )
 
         filled_edges = np.array(
             [
-                [1.0, 2.0, np.NaN, 5.0, 3.0],
+                [1.0, 2.0, np.nan, 5.0, 3.0],
                 [4.0, 4.0, 4.0, 4.0, 4.0],
-                [1.0, 1.0, np.NaN, np.NaN, 3.0],
+                [1.0, 1.0, np.nan, np.nan, 3.0],
                 [1.0, 2.0, 2.0, 2.0, 2.0],
-                [np.NaN, np.NaN, np.NaN, np.NaN, np.NaN],
+                [np.nan, np.nan, np.nan, np.nan, np.nan],
             ]
         )
         for i in range(len(arr)):

@@ -1,6 +1,7 @@
 __pycache__/
 results/
 .vscode/
+casestudy_india/
 
 # Distribution / packaging
 build/
