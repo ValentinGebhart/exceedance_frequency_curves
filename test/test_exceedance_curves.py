@@ -6,10 +6,9 @@ import unittest
 
 import numpy as np
 
-
 import exceedance_curve_tools.exceedance_curves as cec
 
-# from exceedance_curve_tools import utils
+# from exceedance_curve_tools import utilscd .
 
 
 def dummy_exceedance_curve():
@@ -87,10 +86,9 @@ class TestCombiningFunctions(unittest.TestCase):
         ex_curve1 = dummy_exceedance_curve()
         ex_curve2 = dummy_exceedance_curve()
         for cf in [1, 1 / 12]:
-            combined_sum = cec.combine_exceedance_curves(
+            combined_sum = cec.combine_exceedance_curves_analytical(
                 [ex_curve1, ex_curve2],
                 coincidence_fraction=cf,
-                use_sampling=False,
                 value_resolution=1,
             )
 
@@ -121,10 +119,9 @@ class TestCombiningFunctions(unittest.TestCase):
         """Test combining exceedance curves using max (exact)."""
         ex_curve1 = dummy_exceedance_curve()
         ex_curve2 = dummy_exceedance_curve()
-        combined_curve_max = cec.combine_exceedance_curves(
+        combined_curve_max = cec.combine_exceedance_curves_analytical(
             [ex_curve1, ex_curve2],
             coincidence_fraction=1,
-            use_sampling=False,
             value_resolution=1,
         )
 
@@ -132,10 +129,9 @@ class TestCombiningFunctions(unittest.TestCase):
         prob_agg_less_than_100 = prob_less_than_100**2
         exfreq_100 = -np.log(prob_agg_less_than_100)
         # test max aggreagation
-        combined_curve_max = cec.combine_exceedance_curves(
+        combined_curve_max = cec.combine_exceedance_curves_analytical(
             [ex_curve1, ex_curve2],
             coincidence_fraction=1,
-            use_sampling=False,
             value_resolution=1,
             aggregation_method=max,
         )
@@ -150,10 +146,9 @@ class TestCombiningFunctions(unittest.TestCase):
         ex_curve1 = dummy_exceedance_curve()
         ex_curve2 = dummy_exceedance_curve()
         for cf in [1, 1 / 12]:
-            combined_sum_exact = cec.combine_exceedance_curves(
+            combined_sum_exact = cec.combine_exceedance_curves_analytical(
                 [ex_curve1, ex_curve2],
                 coincidence_fraction=cf,
-                use_sampling=False,
                 value_resolution=1,
             )
             combined_sum_sampling = cec.combine_exceedance_curves(
@@ -166,6 +161,82 @@ class TestCombiningFunctions(unittest.TestCase):
                 combined_sum_sampling.exceedance_frequencies[index_110_sampling],
                 decimal=2,
             )
+
+    def test_combine_aggregated_exccedance_curves(self):
+        annual_maxima = np.array([0, 1, 100])
+        prob = np.array([0.6, 0.3, 0.1])
+        ex_prob = np.cumsum(prob[::-1])[::-1]
+
+        # yealy values
+        ex_curve1 = cec.ExceedanceCurve(
+            annual_maxima[1:], ex_prob[1:], aggregation_time_fraction=1
+        )
+        ex_curve2 = cec.ExceedanceCurve(
+            annual_maxima[1:], ex_prob[1:], aggregation_time_fraction=1
+        )
+
+        # combining them by summation
+        annual_maxima_comb = np.array([0, 1, 2, 100, 101, 200])
+        prob_comb = np.array(
+            [
+                prob[0] ** 2,
+                2 * prob[0] * prob[1],
+                prob[1] ** 2,
+                2 * prob[0] * prob[2],
+                2 * prob[1] * prob[2],
+                prob[2] ** 2,
+            ]
+        )
+        ex_prob_comb = np.cumsum(prob_comb[::-1])[::-1]
+
+        rng = np.random.default_rng(42)
+        ex_curve_combined = cec.combine_exceedance_curves(
+            [ex_curve1, ex_curve2], coincidence_fraction=None, n_samples=10_000, rng=rng
+        )
+        np.testing.assert_allclose(
+            [ex_curve_combined.values, ex_curve_combined.exceedance_frequencies],
+            [annual_maxima_comb[1:], ex_prob_comb[1:]],
+            rtol=0.3,
+        )
+
+        # monthly values
+        monthly_maxima = np.array([0, 1, 100])
+        prob_monthly = np.array([0.6, 0.3, 0.1])
+        prob_yearly = prob_monthly * 12
+        ex_prob = np.cumsum(prob_yearly[::-1])[::-1]
+        ex_curve1 = cec.ExceedanceCurve(
+            monthly_maxima[1:], ex_prob[1:], aggregation_time_fraction=1 / 12
+        )
+        ex_curve2 = cec.ExceedanceCurve(
+            monthly_maxima[1:], ex_prob[1:], aggregation_time_fraction=1 / 12
+        )
+
+        # combining them by summation
+        monthly_maxima_comb = np.array([0, 1, 2, 100, 101, 200])
+        prob_comb = np.array(
+            [
+                prob_monthly[0] ** 2,
+                2 * prob_monthly[0] * prob_monthly[1],
+                prob_monthly[1] ** 2,
+                2 * prob_monthly[0] * prob_monthly[2],
+                2 * prob_monthly[1] * prob_monthly[2],
+                prob_monthly[2] ** 2,
+            ]
+        )
+        prob_comb_yearly = prob_comb * 12
+        ex_prob_comb_yearly = np.cumsum(prob_comb_yearly[::-1])[::-1]
+
+        ex_curve_combined_monthly = cec.combine_exceedance_curves(
+            [ex_curve1, ex_curve2], coincidence_fraction=None, n_samples=10_000, rng=rng
+        )
+        np.testing.assert_allclose(
+            [
+                ex_curve_combined_monthly.values,
+                ex_curve_combined_monthly.exceedance_frequencies,
+            ],
+            [monthly_maxima_comb[1:], ex_prob_comb_yearly[1:]],
+            rtol=3,
+        )
 
 
 # Execute Tests

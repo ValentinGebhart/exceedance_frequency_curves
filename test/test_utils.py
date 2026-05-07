@@ -8,6 +8,7 @@ import numpy as np
 
 from exceedance_curve_tools import utils
 
+
 class TestFrequencyFunc(unittest.TestCase):
     """Test frequency and probability conversion functions."""
 
@@ -84,9 +85,7 @@ class TestFrequencyFunc(unittest.TestCase):
         # check inverse of prob_from_ex_freq
         np.testing.assert_array_almost_equal(
             probabilities,
-            utils.prob_from_ex_freq(
-                exceedance_frequencies, coincidence_fraction=1
-            ),
+            utils.prob_from_ex_freq(exceedance_frequencies, coincidence_fraction=1),
         )
 
     def test_freq_from_ex_freq(self):
@@ -108,12 +107,12 @@ class TestFrequencyFunc(unittest.TestCase):
                 ]
             ),
         )
-    
+
         def test_ex_freq_from_freq(self):
             """test converting frequency to exceedance frequency"""
             frequency = np.array(
                 [
-                    [0.1,0.1,0.1,0.1],
+                    [0.1, 0.1, 0.1, 0.1],
                     [290, 9, 1, 0],
                 ]
             )

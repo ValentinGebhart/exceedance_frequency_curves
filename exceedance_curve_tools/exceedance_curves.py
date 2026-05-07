@@ -164,6 +164,33 @@ class ExceedanceCurve:
     def sum_to_aggregation_time_fraction(
         self, aggregation_time_fraction, n_sampled_periods, rng=None
     ):
+        """Sum single-event exceedance curve to total impact over aggregated periods.
+
+        This method samples the total impact of random events occurring within an
+        aggregation window defined by `aggregation_time_fraction` of the curve's
+        `time_unit`, assuming that the number of events is Poisson distributed.
+        The returned curve represents exceedance frequencies of total
+        impacts over that aggregation window, and is tagged with the same
+        `aggregation_time_fraction`.
+
+        Parameters
+        ----------
+        aggregation_time_fraction : float
+            Fraction of the curve's `time_unit` used for aggregation.
+            For example, with `time_unit='year'`, use `1/12` for monthly aggregation.
+        n_sampled_periods : int
+            Number of aggregated periods to sample when estimating the aggregated
+            exceedance curve.
+        rng : numpy.random.Generator, optional
+            Random number generator for sampling. If not provided, a new default
+            generator is created.
+
+        Returns
+        -------
+        ExceedanceCurve
+            A new exceedance curve representing total impacts aggregated over the
+            specified fraction of the time unit.
+        """
         if self.aggregation_time_fraction is not None:
             agg_per = utils.aggregation_period(
                 self.time_unit, self.aggregation_time_fraction
@@ -206,10 +233,9 @@ def combine_exceedance_curves(
     exceedance_curves,
     aggregation_method=sum,
     coincidence_fraction=1 / 12,
-    use_sampling=True,
     correlation_factor=0.0,
     n_samples=10000,
-    value_resolution=None,
+    n_sampled_periods=2000,
     rng=None,
 ):
     """Method to combine a number of exceedance curves
@@ -227,9 +253,6 @@ def combine_exceedance_curves(
         several events from each exceedance curve will be neglected, and the largest value
         for each is considered.
         Defaults to 1/12.
-    use_sampling : bool, optional
-        If True, combined exceedance curve will be sampled. If False, the exceedance curves will be
-        combined by multiplying all corresponding probabilities. Defaults to True.
     correlation_factor : float, optional
         Only applied if use_sampling=True. In the sampling of from the different exceedance curves,
         a correlation factor is applied. If 1., sampled values are perfecly correlated (e.g., the
@@ -238,9 +261,6 @@ def combine_exceedance_curves(
     n_samples : int, optional
         Only applied if use_sampling=True. Number of samples to use for the estimation
         of the combined exceedance curve. Defaults to 10000.
-    value_resolution : float, optional
-        Only applied if use_sampling=False. Resultion of the values to use when computing and
-         aggregating all different combinations of values. Defaults to None.
 
     Returns
     -------
@@ -249,6 +269,132 @@ def combine_exceedance_curves(
     """
     if rng is None:
         rng = np.random.default_rng()
+
+    # convert exceedance curves to aggregated curves if some are aggregated
+    aggregation_time_fractions = np.array(
+        [curve.aggregation_time_fraction for curve in exceedance_curves], dtype=float
+    )
+
+    curves_are_event_based = np.isnan(aggregation_time_fractions).all()
+    if not curves_are_event_based:
+        if (
+            np.unique(
+                aggregation_time_fractions[~np.isnan(aggregation_time_fractions)]
+            ).size
+            > 1
+        ):
+            raise ValueError(
+                "Exceedance curves to combine correspond to different aggregation periods and cannot be combiend."
+            )
+        if coincidence_fraction is not None:
+            raise ValueError(
+                "Exceedance curves to combine correspond to aggregation period. Thus, coincidence_fraction cannot be used and must be set to None."
+            )
+        aggregation_time_fraction = np.unique(
+            aggregation_time_fractions[~np.isnan(aggregation_time_fractions)]
+        )[0]
+        coincidence_fraction = 1
+        exceedance_curves = np.array(
+            [
+                (
+                    curve
+                    if curve.aggregation_time_fraction is not None
+                    else curve.sum_to_aggregation_time_fraction(
+                        aggregation_time_fraction, n_sampled_periods, rng
+                    )
+                )
+                for curve in exceedance_curves
+            ]
+        )
+
+    # prepare values
+    values = np.array(
+        [return_period_curve.values for return_period_curve in exceedance_curves]
+    )
+
+    # prepare probabilities
+    exceedance_frequencies = np.array(
+        [
+            exceedance_curves.exceedance_frequencies
+            for exceedance_curves in exceedance_curves
+        ]
+    )
+
+    # fill NaN edges
+    if np.any(np.isnan(values)):
+        values = np.array([utils.fill_edges(row) for row in values])
+
+    # add zeros corresponding to nothing happens probability
+    values = np.insert(values, 0, 0.0, axis=-1)
+
+    # convert to probabilities
+    exceedance_probabilities = utils.ex_prob_from_ex_freq(
+        exceedance_frequencies,
+        coincidence_fraction,
+    )
+    if not curves_are_event_based:
+        exceedance_probabilities = exceedance_frequencies * aggregation_time_fraction
+
+    # add exceedance_probability of nothing happening
+    exceedance_probabilities = np.insert(exceedance_probabilities, 0, 1.0, axis=-1)
+    sampled_values = _sample_from_prob_sets(
+        values, exceedance_probabilities, correlation_factor, n_samples, rng
+    )
+    final_values, exceedance_probabilities = _exceedance_probabilities_agg_from_sample(
+        sampled_values, aggregation_method
+    )
+
+    final_exceedance_frequency = utils.ex_freq_from_ex_prob(
+        exceedance_probabilities, coincidence_fraction=coincidence_fraction
+    )
+    if not curves_are_event_based:
+        final_exceedance_frequency = (
+            exceedance_probabilities / aggregation_time_fraction
+        )
+
+    aggregated_return_period_curve = ExceedanceCurve(
+        values=final_values,
+        exceedance_frequencies=final_exceedance_frequency,
+        time_unit=exceedance_curves[0].time_unit,
+        value_unit=exceedance_curves[0].value_unit,
+        aggregation_time_fraction=(
+            None if curves_are_event_based else aggregation_time_fraction
+        ),
+    )
+
+    return aggregated_return_period_curve
+
+
+def combine_exceedance_curves_analytical(
+    exceedance_curves,
+    aggregation_method=sum,
+    coincidence_fraction=1 / 12,
+    value_resolution=None,
+):
+    """Method to combine a number of exceedance curves
+
+    Parameters
+    ----------
+    exceedance_curves : iterable of ExceedanceCurve
+        The exceedance curves to be combined
+    aggregation_method : callable, optional
+        Way to combine different values if they happend at the same time.
+        Defaults to sum.
+    coincidence_fraction : float, optional
+        Time window (as a fraction of the time unit) for which to consider two events as
+        coincident and to combine their values. During this time window, the occurence of
+        several events from each exceedance curve will be neglected, and the largest value
+        for each is considered.
+        Defaults to 1/12.
+    value_resolution : float, optional
+        Resultion of the values to use when computing and
+         aggregating all different combinations of values. Defaults to None.
+
+    Returns
+    -------
+    ExceedanceCurve
+        combined exceedance curve
+    """
     # prepare values
     values = np.array(
         [return_period_curve.values for return_period_curve in exceedance_curves]
@@ -257,14 +403,13 @@ def combine_exceedance_curves(
     if np.any(np.isnan(values)):
         values = np.array([utils.fill_edges(row) for row in values])
 
-    if not use_sampling:
-        if value_resolution is None:
-            value_resolution = np.nanmin(np.diff(values, axis=1))
-        # round values to resolution
-        value_bins = np.arange(
-            np.nanmin(values), np.nanmax(values) + value_resolution, value_resolution
-        )
-        values = utils.round_to_array(values, value_bins)
+    if value_resolution is None:
+        value_resolution = np.nanmin(np.diff(values, axis=1))
+    # round values to resolution
+    value_bins = np.arange(
+        np.nanmin(values), np.nanmax(values) + value_resolution, value_resolution
+    )
+    values = utils.round_to_array(values, value_bins)
     # add zeros corresponding to nothing happens probability
     values = np.insert(values, 0, 0.0, axis=-1)
 
@@ -276,48 +421,27 @@ def combine_exceedance_curves(
         ]
     )
 
-    if use_sampling:
-        # convert to probabilities
-        exceedance_probabilities = utils.ex_prob_from_ex_freq(
-            exceedance_frequencies,
-            coincidence_fraction,
-        )
-        # add exceedance_probability of nothing happening
-        exceedance_probabilities = np.insert(exceedance_probabilities, 0, 1.0, axis=-1)
-        sampled_values = _sample_from_prob_sets(
-            values, exceedance_probabilities, correlation_factor, n_samples, rng
-        )
-        final_values, exceedance_probabilities = (
-            _exceedance_probabilities_agg_from_sample(
-                sampled_values, aggregation_method
-            )
+    # convert to probabilities
+    probabilities = utils.prob_from_ex_freq(
+        exceedance_frequency=exceedance_frequencies,
+        coincidence_fraction=coincidence_fraction,
+    )
+    # compute aggreagted values and probabilties
+    final_values = values[0]
+    final_probabilities = probabilities[0]
+    for j in range(1, len(values)):
+        final_values, final_probabilities = _combine_two_prob_sets(
+            [values[j], probabilities[j]],
+            [final_values, final_probabilities],
+            aggregation_method,
+            value_resolution,
         )
 
-        final_exceedance_frequency = utils.ex_freq_from_ex_prob(
-            exceedance_probabilities, coincidence_fraction=coincidence_fraction
-        )
-    else:
-        # convert to probabilities
-        probabilities = utils.prob_from_ex_freq(
-            exceedance_frequency=exceedance_frequencies,
-            coincidence_fraction=coincidence_fraction,
-        )
-        # compute aggreagted values and probabilties
-        final_values = values[0]
-        final_probabilities = probabilities[0]
-        for j in range(1, len(values)):
-            final_values, final_probabilities = _combine_two_prob_sets(
-                [values[j], probabilities[j]],
-                [final_values, final_probabilities],
-                aggregation_method,
-                value_resolution,
-            )
-
-        final_exceedance_frequency = utils.ex_freq_from_prob(
-            final_probabilities, coincidence_fraction=coincidence_fraction
-        )
-        # remove nothing happens bin
-        final_values = final_values[1:]
+    final_exceedance_frequency = utils.ex_freq_from_prob(
+        final_probabilities, coincidence_fraction=coincidence_fraction
+    )
+    # remove nothing happens bin
+    final_values = final_values[1:]
 
     aggregated_return_period_curve = ExceedanceCurve(
         values=final_values,
